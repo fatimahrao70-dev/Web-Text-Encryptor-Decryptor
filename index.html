@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web-Based Text Encryption Tool</title>
+  <!-- CryptoJS Library for AES, Base64, and SHA-256 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #f4f7f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 650px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333333;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #555555;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #cccccc;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    textarea:focus, input:focus, select:focus {
+      border-color: #007bff;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .btn.primary {
+      background-color: #007bff;
+      color: #ffffff;
+    }
+
+    .btn.primary:hover {
+      background-color: #0056b3;
+    }
+
+    .btn.secondary {
+      background-color: #6c757d;
+      color: #ffffff;
+    }
+
+    .btn.secondary:hover {
+      background-color: #545b62;
+    }
+
+    .copy-btn {
+      margin-top: 8px;
+      background-color: #28a745;
+      color: white;
+      width: 100%;
+    }
+
+    .copy-btn:hover {
+      background-color: #218838;
+    }
+
+    .error-box {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Web-Based Text Encryption Tool</h2>
+
+    <!-- Error Alert Banner -->
+    <div id="error-message" class="error-box" style="display: none;"></div>
+
+    <!-- Plaintext Input -->
+    <div class="form-group">
+      <label for="plain-text">Enter Text:</label>
+      <textarea id="plain-text" rows="4" placeholder="Enter plain text or ciphertext here..."></textarea>
+    </div>
+
+    <!-- Algorithm Selection -->
+    <div class="form-group">
+      <label for="algorithm">Select Algorithm / Function:</label>
+      <select id="algorithm" onchange="toggleKeyInput()">
+        <option value="">-- Select Method --</option>
+        <option value="caesar">1. Caesar Cipher (Symmetric Shift)</option>
+        <option value="vigenere">2. Vigenère Cipher (Polyalphabetic)</option>
+        <option value="playfair">3. Playfair Cipher (Digraph Substitution)</option>
+        <option value="transposition">4. Columnar Transposition Cipher</option>
+        <option value="railfence">5. Rail Fence Cipher</option>
+        <option value="otp">6. One-Time Pad (OTP)</option>
+        <option value="aes">7. AES (Advanced Encryption Standard)</option>
+        <option value="base64">8. Base64 Encoding</option>
+        <option value="sha256">9. SHA-256 (Hash - One Way)</option>
+      </select>
+    </div>
+
+    <!-- Secret Key / Shift Input -->
+    <div class="form-group" id="key-container" style="display: none;">
+      <label id="key-label" for="secret-key">Secret Key / Shift:</label>
+      <input type="text" id="secret-key" placeholder="Enter key or shift value...">
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="btn-group">
+      <button class="btn primary" onclick="processText('encrypt')">Encrypt / Process</button>
+      <button class="btn secondary" onclick="processText('decrypt')">Decrypt</button>
+    </div>
+
+    <!-- Output Section -->
+    <div class="form-group output-group">
+      <label for="output-text">Result:</label>
+      <textarea id="output-text" rows="4" readonly placeholder="Resulting output will appear here..."></textarea>
+      <button class="btn copy-btn" onclick="copyToClipboard()">📋 Copy Output</button>
+    </div>
+  </div>
+
+  <script>
+    function toggleKeyInput() {
+      const algorithm = document.getElementById('algorithm').value;
+      const keyContainer = document.getElementById('key-container');
+      const keyLabel = document.getElementById('key-label');
+
+      if (algorithm === 'caesar') {
+        keyContainer.style.display = 'block';
+        keyLabel.textContent = 'Shift Value (Integer):';
+      } else if (algorithm === 'vigenere') {
+        keyContainer.style.display = 'block';
+        keyLabel.textContent = 'Keyword (Letters only):';
+      } else if (algorithm === 'playfair') {
+        keyContainer.style.display = 'block';
+        keyLabel.textContent = 'Key Matrix Word (Letters only):';
+      } else if (algorithm === 'transposition') {
+        keyContainer.style.display = 'block';
+        keyLabel.textContent = 'Key Word/Order (e.g., SECRET or 3142):';
+      } else if (algorithm === 'railfence') {
+        keyContainer.style.display = 'block';
+        keyLabel.textContent = 'Number of Rails (Integer >= 2):';
+      } else if (algorithm === 'otp') {
+        keyContainer.style.display = 'block';
+        keyLabel.textContent = 'One-Time Key (Must be at least as long as text):';
+      } else if (algorithm === 'aes') {
+        keyContainer.style.display = 'block';
+        keyLabel.textContent = 'Secret Passphrase:';
+      } else {
+        keyContainer.style.display = 'none';
+      }
+    }
+
+    function caesarCipher(str, shift, decrypt = false) {
+      if (decrypt) shift = (26 - (shift % 26)) % 26;
+      return str.replace(/[a-zA-Z]/g, (char) => {
+        const base = char >= 'a' ? 97 : 65;
+        return String.fromCharCode(((char.charCodeAt(0) - base + shift) % 26) + base);
+      });
+    }
+
+    function vigenereCipher(text, key, decrypt = false) {
+      let result = '';
+      key = key.toUpperCase().replace(/[^A-Z]/g, '');
+      if (!key) throw new Error("Key must contain alphabetic characters.");
+
+      let keyIndex = 0;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (/[a-zA-Z]/.test(char)) {
+          const isUpper = char === char.toUpperCase();
+          const base = isUpper ? 65 : 97;
+          const textVal = char.toUpperCase().charCodeAt(0) - 65;
+          const keyVal = key[keyIndex % key.length].charCodeAt(0) - 65;
+          let newCharVal = decrypt ? (textVal - keyVal + 26) % 26 : (textVal + keyVal) % 26;
+          result += String.fromCharCode(newCharVal + base);
+          keyIndex++;
+        } else {
+          result += char;
+        }
+      }
+      return result;
+    }
+
+    function playfairCipher(text, key, decrypt = false) {
+      key = key.toUpperCase().replace(/[^A-Z]/g, '').replace(/J/g, 'I');
+      if (!key) throw new Error("Playfair key must contain alphabetic characters.");
+
+      let matrix = [];
+      let alphabet = "ABCDEFGHIKLMNOPQRSTUVWXYZ";
+      let keyString = key + alphabet;
+      for (let char of keyString) {
+        if (!matrix.includes(char)) matrix.push(char);
+      }
+
+      let cleanText = text.toUpperCase().replace(/[^A-Z]/g, '').replace(/J/g, 'I');
+      let digraphs = [];
+      for (let i = 0; i < cleanText.length; i += 2) {
+        let char1 = cleanText[i];
+        let char2 = cleanText[i + 1];
+        if (!char2) char2 = 'X';
+        else if (char1 === char2) { char2 = 'X'; i--; }
+        digraphs.push([char1, char2]);
+      }
+
+      let result = '';
+      let shift = decrypt ? 4 : 1;
+      for (let [c1, c2] of digraphs) {
+        let idx1 = matrix.indexOf(c1);
+        let idx2 = matrix.indexOf(c2);
+        let r1 = Math.floor(idx1 / 5), c1_pos = idx1 % 5;
+        let r2 = Math.floor(idx2 / 5), c2_pos = idx2 % 5;
+
+        if (r1 === r2) {
+          result += matrix[r1 * 5 + ((c1_pos + shift) % 5)];
+          result += matrix[r2 * 5 + ((c2_pos + shift) % 5)];
+        } else if (c1_pos === c2_pos) {
+          result += matrix[((r1 + shift) % 5) * 5 + c1_pos];
+          result += matrix[((r2 + shift) % 5) * 5 + c2_pos];
+        } else {
+          result += matrix[r1 * 5 + c2_pos];
+          result += matrix[r2 * 5 + c1_pos];
+        }
+      }
+      return result;
+    }
+
+    function transpositionCipher(text, key, decrypt = false) {
+      const cols = key.length;
+      if (cols === 0) throw new Error("Key cannot be empty.");
+      
+      const keyOrder = key.split('')
+        .map((char, index) => ({ char, index }))
+        .sort((a, b) => a.char.localeCompare(b.char))
+        .map((item, sortedPos) => ({ originalPos: item.index, sortedPos }));
+
+      if (!decrypt) {
+        const rows = Math.ceil(text.length / cols);
+        let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
+        for (let i = 0; i < text.length; i++) grid[Math.floor(i / cols)][i % cols] = text[i];
+        
+        let ciphertext = '';
+        const sortedCols = [...keyOrder].sort((a, b) => a.sortedPos - b.sortedPos);
+        for (let k = 0; k < cols; k++) {
+          const colIdx = sortedCols[k].originalPos;
+          for (let r = 0; r < rows; r++) if (grid[r][colIdx]) ciphertext += grid[r][colIdx];
+        }
+        return ciphertext;
+      } else {
+        const rows = Math.ceil(text.length / cols);
+        const fullCols = text.length % cols;
+        let colLengths = Array(cols).fill(rows);
+        if (fullCols !== 0) for (let c = fullCols; c < cols; c++) colLengths[c] = rows - 1;
+
+        let grid = Array.from({ length: rows }, () => Array(cols).fill(''));
+        let currentIdx = 0;
+        const sortedCols = [...keyOrder].sort((a, b) => a.sortedPos - b.sortedPos);
+        
+        for (let k = 0; k < cols; k++) {
+          const colIdx = sortedCols[k].originalPos;
+          const len = colLengths[colIdx];
+          for (let r = 0; r < len; r++) grid[r][colIdx] = text[currentIdx++] || '';
+        }
+
+        let plaintext = '';
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) if (grid[r][c]) plaintext += grid[r][c];
+        }
+        return plaintext;
+      }
+    }
+
+    function railFenceCipher(text, rails, decrypt = false) {
+      rails = parseInt(rails, 10);
+      if (isNaN(rails) || rails < 2) throw new Error("Rails must be an integer >= 2.");
+
+      if (!decrypt) {
+        let fence = Array.from({ length: rails }, () => []);
+        let rail = 0, direction = 1;
+        for (let char of text) {
+          fence[rail].push(char);
+          rail += direction;
+          if (rail === 0 || rail === rails - 1) direction *= -1;
+        }
+        return fence.flat().join('');
+      } else {
+        let pattern = Array.from({ length: rails }, () => Array(text.length).fill(null));
+        let rail = 0, direction = 1;
+        for (let i = 0; i < text.length; i++) {
+          pattern[rail][i] = '*';
+          rail += direction;
+          if (rail === 0 || rail === rails - 1) direction *= -1;
+        }
+
+        let index = 0;
+        for (let r = 0; r < rails; r++) {
+          for (let c = 0; c < text.length; c++) {
+            if (pattern[r][c] === '*' && index < text.length) pattern[r][c] = text[index++];
+          }
+        }
+
+        let result = '';
+        rail = 0; direction = 1;
+        for (let i = 0; i < text.length; i++) {
+          result += pattern[rail][i];
+          rail += direction;
+          if (rail === 0 || rail === rails - 1) direction *= -1;
+        }
+        return result;
+      }
+    }
+
+    function oneTimePad(text, key, decrypt = false) {
+      if (key.length < text.length) {
+        throw new Error(`Key is too short! Must be at least ${text.length} characters long.`);
+      }
+      let result = '';
+      for (let i = 0; i < text.length; i++) {
+        result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i));
+      }
+      return result;
+    }
+
+    function processText(action) {
+      const input = document.getElementById('plain-text').value;
+      const algorithm = document.getElementById('algorithm').value;
+      const keyInput = document.getElementById('secret-key').value;
+      const errorBox = document.getElementById('error-message');
+      const outputText = document.getElementById('output-text');
+
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+      outputText.value = '';
+
+      if (!input) { showError("Please enter text to process."); return; }
+      if (!algorithm) { showError("Please select an encryption method."); return; }
+
+      try {
+        let result = '';
+        switch (algorithm) {
+          case 'caesar': {
+            const shift = parseInt(keyInput, 10);
+            if (isNaN(shift)) { showError("Please enter a valid numeric shift value."); return; }
+            result = caesarCipher(input, shift, action === 'decrypt');
+            break;
+          }
+          case 'vigenere':
+            if (!keyInput) { showError("Please enter a keyword for Vigenère Cipher."); return; }
+            result = vigenereCipher(input, keyInput, action === 'decrypt');
+            break;
+          case 'playfair':
+            if (!keyInput) { showError("Please enter a key word for Playfair Cipher."); return; }
+            result = playfairCipher(input, keyInput, action === 'decrypt');
+            break;
+          case 'transposition':
+            if (!keyInput) { showError("Please enter a key for Columnar Transposition."); return; }
+            result = transpositionCipher(input, keyInput, action === 'decrypt');
+            break;
+          case 'railfence':
+            result = railFenceCipher(input, keyInput, action === 'decrypt');
+            break;
+          case 'otp':
+            if (!keyInput) { showError("Please enter a key for One-Time Pad."); return; }
+            result = oneTimePad(input, keyInput, action === 'decrypt');
+            break;
+          case 'aes':
+            if (!keyInput) { showError("Please enter a secret passphrase for AES."); return; }
+            if (action === 'encrypt') {
+              result = CryptoJS.AES.encrypt(input, keyInput).toString();
+            } else {
+              const decrypted = CryptoJS.AES.decrypt(input, keyInput);
+              result = decrypted.toString(CryptoJS.enc.Utf8);
+              if (!result) throw new Error("Invalid key or corrupt ciphertext.");
+            }
+            break;
+          case 'base64':
+            if (action === 'encrypt') {
+              result = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(input));
+            } else {
+              result = CryptoJS.enc.Base64.parse(input).toString(CryptoJS.enc.Utf8);
+            }
+            break;
+          case 'sha256':
+            if (action === 'decrypt') {
+              showError("SHA-256 is a one-way cryptographic hash function and cannot be decrypted.");
+              return;
+            }
+            result = CryptoJS.SHA256(input).toString();
+            break;
+          default:
+            showError("Invalid algorithm selected.");
+            return;
+        }
+        outputText.value = result;
+      } catch (err) {
+        showError("Processing Error: " + err.message);
+      }
+    }
+
+    function copyToClipboard() {
+      const outputText = document.getElementById('output-text');
+      if (!outputText.value) { alert("Nothing to copy!"); return; }
+      navigator.clipboard.writeText(outputText.value).then(() => {
+        alert("Output copied to clipboard!");
+      }).catch(() => {
+        alert("Failed to copy text.");
+      });
+    }
+
+    function showError(message) {
+      const errorBox = document.getElementById('error-message');
+      errorBox.textContent = message;
+      errorBox.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
